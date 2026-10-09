@@ -6,6 +6,7 @@
 package virsh
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -23,7 +24,7 @@ const testXML = `<domain type='kvm'>
 
 func findDomain(t *testing.T, name string) Domain {
 	t.Helper()
-	domains, err := ListAll()
+	domains, err := ListAll(context.Background())
 	if err != nil {
 		t.Fatalf("ListAll: %v", err)
 	}
@@ -36,18 +37,18 @@ func findDomain(t *testing.T, name string) Domain {
 }
 
 func TestIntegrationFlow(t *testing.T) {
-	Undefine(testDomain, true, false) // clean up leftovers from a previous run, ignore errors
+	Undefine(context.Background(), testDomain, true, false) // clean up leftovers from a previous run, ignore errors
 
 	t.Cleanup(func() {
-		Undefine(testDomain, true, false)
-		Destroy(testDomain) // if start succeeded, make sure it is off
+		Undefine(context.Background(), testDomain, true, false)
+		Destroy(context.Background(), testDomain) // if start succeeded, make sure it is off
 	})
 
 	xmlPath := filepath.Join(t.TempDir(), "test.xml")
 	if err := os.WriteFile(xmlPath, []byte(testXML), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := Run("define", xmlPath); err != nil {
+	if _, err := Run(context.Background(), "define", xmlPath); err != nil {
 		t.Fatalf("define: %v", err)
 	}
 
@@ -64,21 +65,21 @@ func TestIntegrationFlow(t *testing.T) {
 	}
 
 	// autostart toggle both ways
-	if _, err := AutostartSet(testDomain, true); err != nil {
+	if _, err := AutostartSet(context.Background(), testDomain, true); err != nil {
 		t.Fatalf("autostart enable: %v", err)
 	}
-	if info, _ := DomInfo(testDomain); info.Get("Autostart") != "enable" {
+	if info, _ := DomInfo(context.Background(), testDomain); info.Get("Autostart") != "enable" {
 		t.Errorf("dominfo autostart = %q, want enable", info.Get("Autostart"))
 	}
-	if _, err := AutostartSet(testDomain, false); err != nil {
+	if _, err := AutostartSet(context.Background(), testDomain, false); err != nil {
 		t.Fatalf("autostart disable: %v", err)
 	}
-	if info, _ := DomInfo(testDomain); info.Get("Autostart") != "disable" {
+	if info, _ := DomInfo(context.Background(), testDomain); info.Get("Autostart") != "disable" {
 		t.Errorf("dominfo autostart = %q, want disable", info.Get("Autostart"))
 	}
 
 	// DomInfo: key fields present
-	if info, err := DomInfo(testDomain); err != nil {
+	if info, err := DomInfo(context.Background(), testDomain); err != nil {
 		t.Fatalf("DomInfo: %v", err)
 	} else if info.Get("Name") != testDomain || info.Get("State") != "shut off" {
 		t.Errorf("DomInfo Name/State = %q/%q", info.Get("Name"), info.Get("State"))
@@ -86,14 +87,14 @@ func TestIntegrationFlow(t *testing.T) {
 
 	// start + destroy (a diskless domain reaching firmware counts as started;
 	// both outcomes are accepted)
-	if _, err := Start(testDomain); err == nil {
-		if _, err := Destroy(testDomain); err != nil {
+	if _, err := Start(context.Background(), testDomain); err == nil {
+		if _, err := Destroy(context.Background(), testDomain); err != nil {
 			t.Fatalf("destroy: %v", err)
 		}
 	}
 
 	// gone from the list after undefine
-	if _, err := Undefine(testDomain, false, false); err != nil {
+	if _, err := Undefine(context.Background(), testDomain, false, false); err != nil {
 		t.Fatalf("undefine: %v", err)
 	}
 	if d := findDomain(t, testDomain); d.Name != "" {

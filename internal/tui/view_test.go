@@ -3,6 +3,7 @@ package tui
 import (
 	"strings"
 	"testing"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 
@@ -31,10 +32,19 @@ func fakeModel() Model {
 }
 
 func TestViewLayout(t *testing.T) {
-	v := fakeModel().View()
+	m := fakeModel()
+	m.logs = []logEntry{{
+		when: time.Now(),
+		ExecLog: virsh.ExecLog{
+			Cmdline: "virsh start resolute",
+			Output:  "Domain resolute started\n",
+		},
+	}}
+	v := m.View()
 	for _, want := range []string{
 		"Domains (2)", "resolute", "shut off", "AUTOSTART",
 		"Command Log", "quit", "▸",
+		"$ virsh start resolute", "Domain resolute started",
 	} {
 		if !strings.Contains(v, want) {
 			t.Errorf("View() missing %q\n%s", want, v)

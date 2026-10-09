@@ -25,6 +25,10 @@ var (
 			Bold(true).
 			Foreground(lipgloss.Color("37"))
 
+	cmdStyle = lipgloss.NewStyle().
+			Bold(true).
+			Foreground(lipgloss.Color("81"))
+
 	modalStyle = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(lipgloss.Color("203")).

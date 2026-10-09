@@ -151,8 +151,8 @@ func (m Model) detailView(w, h int) string {
 	return b.String()
 }
 
-// commandLogView renders the most recent commands: the command echo and its
-// output (or error).
+// commandLogView renders the Command Log: each entry is the echoed virsh
+// command line, followed by its output (or error) on the next line.
 func (m Model) commandLogView(w, h int) string {
 	var b strings.Builder
 	b.WriteString(titleStyle.Render("Command Log"))
@@ -163,27 +163,38 @@ func (m Model) commandLogView(w, h int) string {
 	}
 
 	rows := h - 3 // border + title
-	if rows < 1 {
-		rows = 1
+	if rows < 2 {
+		rows = 2
 	}
-	start := 0
-	if len(m.logs) > rows {
-		start = len(m.logs) - rows
-	}
-	for i := start; i < len(m.logs); i++ {
-		l := m.logs[i]
-		line := fmt.Sprintf("%s  %s", l.when.Format("15:04:05"), truncate(l.text, w-4))
-		if l.err {
-			line = errStyle.Render(line)
-		} else {
-			line = okStyle.Render(line)
+
+	// Fill from the newest entry backwards until the panel is full, keeping
+	// entries intact (echo + result line), then flip to chronological order.
+	var lines []string
+	for i := len(m.logs) - 1; i >= 0; i-- {
+		if len(lines)+2 > rows {
+			break
 		}
-		b.WriteString(line)
-		if i != len(m.logs)-1 {
-			b.WriteByte('\n')
-		}
+		e := m.logs[i]
+		echo := dimStyle.Render(e.when.Format("15:04:05")) + "  " +
+			cmdStyle.Render("$ "+truncate(e.Cmdline, w-16))
+		lines = append([]string{echo, logResultLine(e, w)}, lines...)
 	}
-	return b.String()
+	return b.String() + strings.Join(lines, "\n")
+}
+
+// logResultLine renders the second line of an entry: the first line of the
+// command output, or the error message.
+func logResultLine(e logEntry, w int) string {
+	const indentW = 11 // width of "15:04:05" + two spaces
+	indent := strings.Repeat(" ", indentW)
+	if e.Err != nil {
+		return indent + errStyle.Render("error: "+truncate(firstLine(e.Err.Error()), w-4-indentW))
+	}
+	out := firstLine(strings.TrimSpace(e.Output))
+	if out == "" {
+		out = "ok"
+	}
+	return indent + okStyle.Render(truncate(out, w-4-indentW))
 }
 
 func (m Model) helpLine() string {
@@ -223,6 +234,15 @@ func (m Model) confirmView() string {
 	)
 	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center,
 		modalStyle.Render(body))
+}
+
+// firstLine returns everything before the first newline (CR stripped).
+func firstLine(s string) string {
+	s = strings.ReplaceAll(s, "\r", "")
+	if i := strings.IndexByte(s, '\n'); i >= 0 {
+		return s[:i]
+	}
+	return s
 }
 
 // truncate cuts to the given display width; logs may contain CJK, so the

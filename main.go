@@ -3,6 +3,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"os"
@@ -37,13 +38,14 @@ func main() {
 	}
 
 	p := tea.NewProgram(tui.New(), tea.WithAltScreen())
+	tui.AttachExecLogger(p) // every virsh invocation lands in the Command Log
 	if _, err := p.Run(); err != nil {
 		fatal("TUI failed: " + err.Error())
 	}
 }
 
 func listOnly() {
-	domains, err := virsh.ListAll()
+	domains, err := virsh.ListAll(context.Background())
 	if err != nil {
 		fatal(err.Error())
 	}

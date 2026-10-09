@@ -40,8 +40,11 @@ go build -o lazyvirt .
 - The list auto-refreshes every 5 seconds and immediately after every
   operation; the selection is tracked by domain name, so reordering never
   moves it.
-- All operations run asynchronously (30s timeout); the Command Log panel shows
-  each command echo and its output, with the raw stderr on failure.
+- All operations run asynchronously (30s timeout).
+- Every virsh invocation is echoed in the Command Log panel — the full command
+  line followed by its output (raw stderr on failure) — including the initial
+  `virsh list --all` / `virsh dominfo` fetches at startup; only the periodic
+  background refresh stays silent.
 - When virsh cannot connect, an error banner replaces the list and the UI
   keeps retrying instead of exiting.
 

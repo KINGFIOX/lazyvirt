@@ -4,6 +4,7 @@
 package tui
 
 import (
+	"context"
 	"time"
 
 	"github.com/charmbracelet/bubbletea"
@@ -13,10 +14,10 @@ import (
 
 const refreshInterval = 5 * time.Second
 
-type logLine struct {
+// logEntry is one virsh invocation shown in the Command Log panel.
+type logEntry struct {
 	when time.Time
-	text string
-	err  bool
+	virsh.ExecLog
 }
 
 type confirmKind int
@@ -38,7 +39,7 @@ type Model struct {
 	detail     virsh.Detail
 
 	err  error // list refresh failure (virsh unreachable etc.), shown in the list panel
-	logs []logLine
+	logs []logEntry
 
 	confirm     confirmKind
 	confirmName string
@@ -50,7 +51,7 @@ type Model struct {
 func New() Model { return Model{} }
 
 func (m Model) Init() tea.Cmd {
-	return tea.Batch(refreshCmd(), tickCmd())
+	return tea.Batch(refreshCmd(false), tickCmd())
 }
 
 // selected returns the domain under the cursor.
@@ -61,9 +62,24 @@ func (m Model) selected() (virsh.Domain, bool) {
 	return m.domains[m.cursor], true
 }
 
+// AttachExecLogger wires virsh execution reports into the program as
+// messages, so every non-quiet invocation shows up in the Command Log.
+func AttachExecLogger(p *tea.Program) {
+	virsh.OnExec = func(e virsh.ExecLog) {
+		p.Send(execLogMsg{entry: e})
+	}
+}
+
+type execLogMsg struct {
+	entry virsh.ExecLog
+}
+
+// refreshMsg carries the result of a list refresh; quiet marks background
+// (ticker-driven) refreshes so their follow-up detail fetch stays silent.
 type refreshMsg struct {
 	domains []virsh.Domain
 	err     error
+	quiet   bool
 }
 
 type detailMsg struct {
@@ -72,24 +88,32 @@ type detailMsg struct {
 	err    error
 }
 
-type opDoneMsg struct {
-	desc   string // display description of the command, e.g. "shutdown resolute"
-	output string
-	err    error
-}
+// opDoneMsg signals that an operation finished; its echo and result have
+// already been reported through execLogMsg.
+type opDoneMsg struct{}
 
 type tickMsg struct{}
 
-func refreshCmd() tea.Cmd {
+// refreshCmd runs `virsh list --all`; quiet suppresses the Command Log entry
+// (used by the periodic ticker).
+func refreshCmd(quiet bool) tea.Cmd {
 	return func() tea.Msg {
-		domains, err := virsh.ListAll()
-		return refreshMsg{domains: domains, err: err}
+		ctx := context.Background()
+		if quiet {
+			ctx = virsh.Quiet(ctx)
+		}
+		domains, err := virsh.ListAll(ctx)
+		return refreshMsg{domains: domains, err: err, quiet: quiet}
 	}
 }
 
-func detailCmd(name string) tea.Cmd {
+func detailCmd(name string, quiet bool) tea.Cmd {
 	return func() tea.Msg {
-		d, err := virsh.DomInfo(name)
+		ctx := context.Background()
+		if quiet {
+			ctx = virsh.Quiet(ctx)
+		}
+		d, err := virsh.DomInfo(ctx, name)
 		return detailMsg{name: name, detail: d, err: err}
 	}
 }
@@ -98,11 +122,11 @@ func tickCmd() tea.Cmd {
 	return tea.Tick(refreshInterval, func(time.Time) tea.Msg { return tickMsg{} })
 }
 
-// opCmd wraps a backend operation into an async command; on completion the
-// command echo and its result land in the Command Log panel.
-func opCmd(desc string, fn func() (string, error)) tea.Cmd {
+// opCmd wraps a backend operation into an async command; the invocation
+// itself is logged by the virsh layer, so on completion we only refresh.
+func opCmd(fn func(ctx context.Context) (string, error)) tea.Cmd {
 	return func() tea.Msg {
-		out, err := fn()
-		return opDoneMsg{desc: desc, output: out, err: err}
+		_, _ = fn(context.Background())
+		return opDoneMsg{}
 	}
 }
