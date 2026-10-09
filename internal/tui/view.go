@@ -119,12 +119,13 @@ func (m Model) scrollOffset(visible int) int {
 // detailView renders the dominfo of the selected domain on the right.
 func (m Model) detailView(w, h int) string {
 	var b strings.Builder
-	sel, ok := m.selected()
-	if !ok {
-		return titleStyle.Render("Domain")
-	}
-	b.WriteString(titleStyle.Render(sel.Name))
+	b.WriteString(titleStyle.Render("dominfo"))
 	b.WriteByte('\n')
+
+	sel, ok := m.selected()
+	if !ok || m.detailName != sel.Name || len(m.detail.Lines) == 0 {
+		return b.String() + dimStyle.Render("…")
+	}
 
 	if m.detailName != sel.Name || len(m.detail.Lines) == 0 {
 		return b.String() + dimStyle.Render("…")

@@ -4,7 +4,7 @@ A lazygit / lazydocker-style TUI for managing libvirt virtual machines, backed
 by the `virsh` CLI.
 
 ```
-┌─Domains (2)──────────────────────┐┌─resolute──────────────────────┐
+┌─Domains (2)──────────────────────┐┌─dominfo────────────────────────┐
 │    NAME          STATE  AUTOSTART ││ Id:         1                 │
 │ ▸  resolute      running disable  ││ Name:       resolute          │
 │    demo        shut off enable    ││ State:      running           │
