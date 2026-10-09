@@ -74,3 +74,7 @@ internal/virsh/       virsh command wrappers and output parsing (30s timeouts,
                       stderr captured)
 internal/tui/         bubbletea three-panel UI: model / update / view / styles
 ```
+
+## License
+
+[MIT](LICENSE)
