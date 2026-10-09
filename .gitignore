@@ -1,0 +1,13 @@
+bin/
+
+# Test and coverage artifacts
+*.test
+*.out
+
+# Editor / IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
